@@ -19,14 +19,14 @@ database_id = "your-d1-database-id-here"
 # bucket_name = "monitorflare-backups"
 
 [vars]
-# 管理员认证(二选一,API Key 优先)
-ADMIN_API_KEY = "your-admin-key"
-# ADMIN_PASSWORD = "your-admin-password"
+# 管理员认证（敏感值不要写进此文件）
+# API Key 优先：npx wrangler secret put ADMIN_API_KEY
+# 密码方式：npx wrangler secret put ADMIN_PASSWORD
 ALLOWED_ORIGIN = "https://monitorflare.pages.dev"
 SESSION_TTL_HOURS = "12"
 
 # Magic Link 签名密钥(可选,用于邮件登录)
-# MAGIC_LINK_SECRET = "your-magic-link-secret"
+# npx wrangler secret put MAGIC_LINK_SECRET
 
 # OAuth(可选)
 # GOOGLE_CLIENT_ID = "xxx.apps.googleusercontent.com"

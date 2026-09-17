@@ -57,10 +57,8 @@ jobs:
           echo 'database_id = "${{ secrets.D1_DATABASE_ID }}"' >> wrangler.toml
           echo '' >> wrangler.toml
           echo '[vars]' >> wrangler.toml
-          echo 'ADMIN_API_KEY = "${{ secrets.ADMIN_API_KEY }}"' >> wrangler.toml
           echo 'ALLOWED_ORIGIN = "${{ vars.ALLOWED_ORIGIN }}"' >> wrangler.toml
           echo 'SESSION_TTL_HOURS = "${{ vars.SESSION_TTL_HOURS }}"' >> wrangler.toml
-          echo 'MAGIC_LINK_SECRET = "${{ secrets.MAGIC_LINK_SECRET }}"' >> wrangler.toml
           echo 'BASE_URL = "${{ vars.BASE_URL }}"' >> wrangler.toml
 
       - name: Deploy Worker
@@ -70,6 +68,20 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
           command: deploy
+
+      - name: Configure Worker secrets
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
+        run: |
+          test -n "$ADMIN_API_KEY" || { echo 'ADMIN_API_KEY is required'; exit 1; }
+          printf '%s' "$ADMIN_API_KEY" | npx wrangler secret put ADMIN_API_KEY
+          if [ -n "$MAGIC_LINK_SECRET" ]; then
+            printf '%s' "$MAGIC_LINK_SECRET" | npx wrangler secret put MAGIC_LINK_SECRET
+          fi
 
   deploy-pages:
     name: Deploy Pages (Frontend)
