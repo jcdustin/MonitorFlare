@@ -528,7 +528,7 @@ app.post('/monitors/:id/check', async (c) => {
     const monitor = await c.env.DB.prepare(`SELECT ${MONITOR_COLUMNS} FROM monitors WHERE id = ?`)
       .bind(id).first<Monitor>();
     if (!monitor) return c.json({ error: 'Monitor not found' }, 404);
-    const result = await performCheck(monitor, c.env);
+    const result = await performMonitorCheck(monitor, c.env);
     return c.json(result);
   } catch (e: unknown) {
     return c.json({ error: e instanceof Error ? e.message : 'Unknown error' }, 500);
@@ -1296,6 +1296,8 @@ async function performMonitorCheck(monitor: Monitor, env: Bindings) {
   if (monitor.alert_error_rate > 0) {
     await checkErrorRate(env, monitor, lang, tz);
   }
+
+  return result;
 }
 
 async function sendUptimeAlert(env: Bindings, monitor: Monitor, type: 'DOWN' | 'UP', detail: string, lang: Lang, tz: string) {
