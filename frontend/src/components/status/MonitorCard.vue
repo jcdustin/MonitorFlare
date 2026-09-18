@@ -49,6 +49,20 @@
             <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
             SSL {{ formatExpiry(monitor.cert_expiry) }} · {{ formatExpiryDate(monitor.cert_expiry) }}
           </span>
+          <span v-else-if="monitor.type === 'http' && monitor.check_ssl === 1"
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] sm:text-[11px] font-mono border"
+            :class="monitor.info_status === 'ERROR' || monitor.info_status === 'PARTIAL'
+              ? 'text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20'
+              : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.08]'"
+            :title="monitor.last_info_error || ''">
+            {{ $t(monitor.info_status === 'ERROR' || monitor.info_status === 'PARTIAL' ? 'monitorDetail.sslUnavailable' : 'monitorDetail.sslPending') }}
+          </span>
+          <span v-if="monitor.domain_expiry"
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] sm:text-[11px] font-mono border"
+            :class="getExpiryClass(monitor.domain_expiry)">
+            <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582"/></svg>
+            {{ $t('monitorDetail.domainExpiry', { days: formatExpiry(monitor.domain_expiry), date: formatExpiryDate(monitor.domain_expiry) }) }}
+          </span>
         </div>
       </div>
 
@@ -113,7 +127,7 @@ const sparkline = computed(() => {
 
 const typeKey = computed(() => {
     const t = props.monitor.type || 'http';
-    return t === 'http' && props.monitor.check_ssl === 1 ? 'ssl' : t;
+    return t === 'http' && props.monitor.cert_expiry ? 'ssl' : t;
 });
 
 const typeIcon = computed(() => ({

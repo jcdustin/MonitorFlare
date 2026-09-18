@@ -52,7 +52,7 @@
         <div>
           <p class="text-[11px] text-slate-500 dark:text-slate-500 mb-1">{{ $t('hero.currentUp') }}</p>
           <p class="text-2xl font-bold text-emerald-500 dark:text-emerald-400 font-mono">
-            {{ activeMonitors.length > 0 ? Math.round(activeMonitors.filter(m => m.status === 'UP').length / activeMonitors.length * 100) : 0 }}%
+            {{ activeMonitors.filter(m => m.status === 'UP').length }} / {{ activeMonitors.length }}
           </p>
         </div>
         <div>

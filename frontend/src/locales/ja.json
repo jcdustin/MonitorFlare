@@ -638,6 +638,8 @@
     "sslExpiry": "SSL {days} · {date}",
     "domainExpiry": "ドメイン {days} · {date}",
     "sslChecked": "SSL 確認済み",
+    "sslUnavailable": "SSL データ取得不可",
+    "sslPending": "SSL チェック保留中",
     "uptime90": "稼働率(90日間)",
     "latencyTrend": "応答時間の推移",
     "now": "現在",

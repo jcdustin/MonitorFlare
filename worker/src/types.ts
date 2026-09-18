@@ -23,6 +23,9 @@ export interface Monitor {
   domain_expiry: string | null;
   cert_expiry: string | null;
   check_info_status: string | null;
+  last_info_attempt: string | null;
+  info_status: 'OK' | 'PARTIAL' | 'ERROR' | null;
+  last_info_error: string | null;
   paused: number;
   check_ssl: number;
   check_domain: number;

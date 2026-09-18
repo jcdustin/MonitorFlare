@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS monitors (
   domain_expiry TEXT,
   cert_expiry TEXT,
   check_info_status TEXT,
+  last_info_attempt TEXT,
+  info_status TEXT,
+  last_info_error TEXT,
   paused INTEGER DEFAULT 0,
   check_ssl INTEGER DEFAULT 1,
   check_domain INTEGER DEFAULT 1,
@@ -128,6 +131,9 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('alert_template_error_rate',
 -- ALTER TABLE monitors ADD COLUMN type TEXT DEFAULT 'http';
 -- ALTER TABLE monitors ADD COLUMN config TEXT;
 -- ALTER TABLE monitors ADD COLUMN alert_after_failures INTEGER DEFAULT 1;
+-- ALTER TABLE monitors ADD COLUMN last_info_attempt TEXT;
+-- ALTER TABLE monitors ADD COLUMN info_status TEXT;
+-- ALTER TABLE monitors ADD COLUMN last_info_error TEXT;
 -- CREATE TABLE IF NOT EXISTS subscriptions (...);
 -- CREATE TABLE IF NOT EXISTS api_keys (...);
 -- INSERT OR IGNORE INTO settings (key, value) VALUES ('language', 'en');

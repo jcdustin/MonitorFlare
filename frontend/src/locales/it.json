@@ -638,6 +638,8 @@
     "sslExpiry": "SSL {days} · {date}",
     "domainExpiry": "Dominio {days} · {date}",
     "sslChecked": "SSL verificato",
+    "sslUnavailable": "Dati SSL non disponibili",
+    "sslPending": "Verifica SSL in attesa",
     "uptime90": "Disponibilità (90 giorni)",
     "latencyTrend": "Andamento latenza",
     "now": "ora",
