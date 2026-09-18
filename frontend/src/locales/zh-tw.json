@@ -638,6 +638,8 @@
     "sslExpiry": "SSL {days} · {date}",
     "domainExpiry": "網域 {days} · {date}",
     "sslChecked": "已檢查 SSL",
+    "sslUnavailable": "SSL 資料無法取得",
+    "sslPending": "SSL 檢查等待中",
     "uptime90": "可用率(近 90 天)",
     "latencyTrend": "延遲趨勢",
     "now": "現在",

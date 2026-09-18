@@ -638,6 +638,8 @@
     "sslExpiry": "SSL {days} · {date}",
     "domainExpiry": "도메인 {days} · {date}",
     "sslChecked": "SSL 확인됨",
+    "sslUnavailable": "SSL 데이터 사용 불가",
+    "sslPending": "SSL 확인 대기 중",
     "uptime90": "가동률(90일)",
     "latencyTrend": "지연 추이",
     "now": "현재",

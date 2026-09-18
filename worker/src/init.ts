@@ -17,6 +17,7 @@ const INIT_STATEMENTS: string[] = [
     retry_count INTEGER DEFAULT 0,
     last_check DATETIME, keyword TEXT, user_agent TEXT, tags TEXT,
     domain_expiry TEXT, cert_expiry TEXT, check_info_status TEXT,
+    last_info_attempt TEXT, info_status TEXT, last_info_error TEXT,
     paused INTEGER DEFAULT 0,
     check_ssl INTEGER DEFAULT 1, check_domain INTEGER DEFAULT 1,
     alert_silence_uptime INTEGER DEFAULT 24,
@@ -115,6 +116,9 @@ export async function ensureInitialized(env: Bindings): Promise<boolean> {
         await ensureColumn(env, 'monitors', 'type', "TEXT DEFAULT 'http'");
         await ensureColumn(env, 'monitors', 'config', 'TEXT');
         await ensureColumn(env, 'monitors', 'alert_after_failures', 'INTEGER DEFAULT 1');
+        await ensureColumn(env, 'monitors', 'last_info_attempt', 'TEXT');
+        await ensureColumn(env, 'monitors', 'info_status', 'TEXT');
+        await ensureColumn(env, 'monitors', 'last_info_error', 'TEXT');
         return true;
       } catch (e) {
         console.error('Init failed:', e);

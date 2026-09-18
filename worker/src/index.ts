@@ -24,7 +24,8 @@ import {
 const MONITOR_COLUMNS = `
   id, name, url, type, config, method, request_headers, request_body, interval, status,
   retry_count, last_check, keyword, user_agent, tags, domain_expiry, cert_expiry,
-  check_info_status, paused, check_ssl, check_domain, alert_silence_uptime,
+  check_info_status, last_info_attempt, info_status, last_info_error,
+  paused, check_ssl, check_domain, alert_silence_uptime,
   alert_silence_ssl, alert_silence_domain, alert_error_rate, alert_after_failures,
   last_alert_uptime, last_alert_ssl, last_alert_domain, sort_order, created_at
 `;
@@ -260,7 +261,7 @@ app.get('/monitors', async (c) => {
 app.get('/monitors/public', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(
-      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, paused, tags, check_ssl FROM monitors ORDER BY sort_order ASC, created_at ASC'
+      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, info_status, last_info_error, paused, tags, check_ssl FROM monitors ORDER BY sort_order ASC, created_at ASC'
     ).all();
     return c.json(results);
   } catch (e: unknown) {
@@ -272,7 +273,7 @@ app.get('/monitors/public', async (c) => {
 app.get('/monitors/public/details', async (c) => {
   try {
     const { results: monitors } = await c.env.DB.prepare(
-      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, paused, tags, check_ssl FROM monitors ORDER BY sort_order ASC, created_at ASC'
+      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, info_status, last_info_error, paused, tags, check_ssl FROM monitors ORDER BY sort_order ASC, created_at ASC'
     ).all();
     if (!monitors || monitors.length === 0) return c.json({ monitors: [] });
 
@@ -349,7 +350,7 @@ app.get('/monitors/public/:id', async (c) => {
     if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid monitor id' }, 400);
 
     const monitor = await c.env.DB.prepare(
-      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, paused, tags, check_ssl, method, interval, keyword, created_at FROM monitors WHERE id = ?'
+      'SELECT id, name, url, type, status, last_check, cert_expiry, domain_expiry, info_status, last_info_error, paused, tags, check_ssl, method, interval, keyword, created_at FROM monitors WHERE id = ?'
     ).bind(id).first();
     if (!monitor) return c.json({ error: 'Monitor not found' }, 404);
 
@@ -463,11 +464,9 @@ app.post('/monitors', async (c) => {
     if (type === 'http' && (body.check_ssl !== 0 || body.check_domain !== 0)) {
       c.executionCtx.waitUntil((async () => {
         try {
-          await c.env.DB.prepare('UPDATE monitors SET check_info_status = ? WHERE id = ?')
-            .bind(new Date().toISOString(), newId).run();
           const { results } = await c.env.DB.prepare(`SELECT ${MONITOR_COLUMNS} FROM monitors WHERE id = ?`)
             .bind(newId).all<Monitor>();
-          if (results[0]) await updateDomainCertInfo(c.env, results[0]);
+          if (results[0]) await refreshMonitorMetadata(c.env, results[0]);
         } catch (err) { console.error('Initial cert check failed:', err); }
       })());
     }
@@ -1249,6 +1248,35 @@ function isTimeToCheck(monitor: Monitor, now: number): boolean {
   return now - lastCheck >= intervalMs;
 }
 
+const INFO_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const INFO_RETRY_INTERVAL_MS = 60 * 60 * 1000;
+
+function shouldRefreshMetadata(monitor: Monitor, now = Date.now()): boolean {
+  // 旧版本没有独立记录尝试状态；升级后立即重新获取一次，修正可能的假成功时间戳。
+  if (!monitor.info_status && !monitor.last_info_attempt) return true;
+  if (monitor.info_status === 'ERROR' || monitor.info_status === 'PARTIAL') {
+    const lastAttempt = monitor.last_info_attempt ? new Date(monitor.last_info_attempt).getTime() : 0;
+    return !Number.isFinite(lastAttempt) || now - lastAttempt >= INFO_RETRY_INTERVAL_MS;
+  }
+  const lastSuccess = monitor.check_info_status ? new Date(monitor.check_info_status).getTime() : 0;
+  return !Number.isFinite(lastSuccess) || now - lastSuccess >= INFO_REFRESH_INTERVAL_MS;
+}
+
+async function refreshMonitorMetadata(env: Bindings, monitor: Monitor): Promise<void> {
+  const attemptedAt = new Date().toISOString();
+  const metadata = await updateDomainCertInfo(env, monitor);
+  const error = metadata.errors.length > 0 ? metadata.errors.join('; ') : null;
+  if (metadata.status === 'OK') {
+    await env.DB.prepare(
+      'UPDATE monitors SET check_info_status = ?, last_info_attempt = ?, info_status = ?, last_info_error = NULL WHERE id = ?'
+    ).bind(attemptedAt, attemptedAt, metadata.status, monitor.id).run();
+  } else {
+    await env.DB.prepare(
+      'UPDATE monitors SET last_info_attempt = ?, info_status = ?, last_info_error = ? WHERE id = ?'
+    ).bind(attemptedAt, metadata.status, error, monitor.id).run();
+  }
+}
+
 async function performMonitorCheck(monitor: Monitor, env: Bindings) {
   const result: CheckResult = await performCheck(monitor, env);
 
@@ -1256,13 +1284,12 @@ async function performMonitorCheck(monitor: Monitor, env: Bindings) {
   await env.DB.prepare('INSERT INTO logs (monitor_id, status_code, latency, is_fail, reason) VALUES (?, ?, ?, ?, ?)')
     .bind(monitor.id, result.statusCode, result.latency, result.ok ? 0 : 1, result.reason || null).run();
 
-  // 刷新 HTTP 监控的证书/域名信息(24h)
-  if (monitor.type === 'http') {
-    const lastInfoCheck = monitor.check_info_status ? new Date(monitor.check_info_status).getTime() : 0;
-    if (Date.now() - lastInfoCheck > 86400000) {
-      env.DB.prepare('UPDATE monitors SET check_info_status = ? WHERE id = ?')
-        .bind(new Date().toISOString(), monitor.id).run()
-        .then(() => updateDomainCertInfo(env, monitor)).catch(console.error);
+  // 成功后 24h 刷新；失败/部分失败 1h 后重试。失败不会清空上次成功值。
+  if (monitor.type === 'http' && (monitor.check_ssl === 1 || monitor.check_domain === 1) && shouldRefreshMetadata(monitor)) {
+    try {
+      await refreshMonitorMetadata(env, monitor);
+    } catch (error) {
+      console.error('Metadata refresh failed:', error);
     }
   }
 
