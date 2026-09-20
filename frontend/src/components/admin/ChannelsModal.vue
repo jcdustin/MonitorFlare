@@ -93,16 +93,26 @@
                       </div>
                     </div>
 
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-950/20 px-3 py-2.5">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-[11px] text-slate-500">{{ $t('channels.testHint') }}</span>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                          <button v-for="test in testOptions" :key="test.kind" type="button" @click.stop="testCh(ch, test.kind)" :disabled="testingChannelId === ch.id"
+                            class="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                            :class="test.classes" :aria-label="$t('channels.testAria', { name: `${ch.name} · ${test.label}` })">
+                            <i class="fas text-[9px]" :class="testingKey === `${ch.id}:${test.kind}` ? 'fa-spinner fa-spin' : test.icon"></i>
+                            {{ test.label }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="flex items-center justify-between gap-2 shrink-0">
                       <button @click.stop="toggleCh(ch)" :disabled="togglingId === ch.id"
                         class="relative w-14 h-9 rounded-full transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 disabled:opacity-60"
                         :class="isEnabled(ch) ? 'bg-green-600' : 'bg-slate-700'"
                         role="switch" :aria-checked="isEnabled(ch)" :aria-label="isEnabled(ch) ? $t('channels.disableAria', { name: ch.name }) : $t('channels.enableAria', { name: ch.name })" :title="isEnabled(ch) ? $t('channels.disableTitle') : $t('channels.enableTitle')">
                         <span class="absolute top-1 w-7 h-7 rounded-full bg-white shadow transition-all" :class="isEnabled(ch) ? 'left-6' : 'left-1'"></span>
-                      </button>
-                      <button @click.stop="testCh(ch)" :disabled="testingId === ch.id" class="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-400 hover:bg-green-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 disabled:opacity-60 transition-colors cursor-pointer" :aria-label="$t('channels.testAria', { name: ch.name })">
-                        <i class="fas text-[10px]" :class="testingId === ch.id ? 'fa-spinner fa-spin' : 'fa-paper-plane'"></i>
-                        {{ $t('channels.test') }}
                       </button>
                       <button @click.stop="editCh(ch)" class="w-9 h-9 rounded-lg flex items-center justify-center text-blue-500/80 hover:text-blue-400 hover:bg-blue-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors cursor-pointer" :aria-label="$t('channels.editAria', { name: ch.name })" :title="$t('common.edit')">
                         <i class="fas fa-pen text-xs"></i>
@@ -328,7 +338,8 @@ const channelsLoading = ref(false);
 const channelError = ref('');
 const editing = ref(null);
 const saving = ref(false);
-const testingId = ref(null);
+const testingChannelId = ref(null);
+const testingKey = ref('');
 const togglingId = ref(null);
 const deletingId = ref(null);
 
@@ -339,6 +350,12 @@ const emailProviders = [
     { value: 'postmark', label: 'Postmark' },
     { value: 'ses', label: 'AWS SES' },
 ];
+
+const testOptions = computed(() => [
+    { kind: 'down', label: t('channels.testDown'), icon: 'fa-circle-exclamation', classes: 'border-red-500/25 bg-red-500/10 text-red-400 hover:bg-red-500/20 focus-visible:ring-red-400' },
+    { kind: 'warning', label: t('channels.testWarning'), icon: 'fa-triangle-exclamation', classes: 'border-amber-500/25 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 focus-visible:ring-amber-400' },
+    { kind: 'recovery', label: t('channels.testRecovery'), icon: 'fa-circle-check', classes: 'border-green-500/25 bg-green-500/10 text-green-400 hover:bg-green-500/20 focus-visible:ring-green-400' },
+]);
 
 const typeInfo = computed(() => ({
     wecom: { iconClass: 'fab fa-weixin text-green-400 text-lg', label: t('channelTypes.wecom'), desc: t('channelTypes.wecomDesc'), bg: 'bg-green-900/40' },
@@ -465,17 +482,23 @@ const toggleCh = async (ch) => {
     }
 };
 
-const testCh = async (ch) => {
-    testingId.value = ch.id;
+const testCh = async (ch, kind) => {
+    testingChannelId.value = ch.id;
+    testingKey.value = `${ch.id}:${kind}`;
     addToast(t('channels.testing'), 'info');
     try {
-        const res = await authFetch(`${API_BASE}/notification-channels/${ch.id}/test`, { method: 'POST' });
+        const res = await authFetch(`${API_BASE}/notification-channels/${ch.id}/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind }),
+        });
         const d = await res.json();
         addToast(d.success ? t('channels.testSent') : t('channels.testFailed'), d.success ? 'success' : 'error');
     } catch {
         addToast(t('channels.testFailed'), 'error');
     } finally {
-        testingId.value = null;
+        testingChannelId.value = null;
+        testingKey.value = '';
     }
 };
 

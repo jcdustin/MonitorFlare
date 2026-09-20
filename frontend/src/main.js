@@ -47,7 +47,8 @@ const i18n = createI18n({
   messages: { en, zh, 'zh-tw': zhTw, ja, ko, de, fr, it, es },
 });
 
-// 全局时区(默认 UTC,可在设置中修改)
+// 全局时区：本地缓存仅用于离线/接口失败时的回退。
+// 正常启动时会由服务器 settings.timezone 覆盖，保证所有设备显示一致。
 const storedTz = localStorage.getItem('monitorflare_tz') || 'UTC';
 dayjs.tz.setDefault(storedTz);
 
@@ -68,6 +69,26 @@ export function getAppTimezone() {
   return localStorage.getItem('monitorflare_tz') || 'UTC';
 }
 
+async function loadSharedPreferences() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch('/api/settings', { signal: controller.signal });
+    if (!response.ok) return;
+    const settings = await response.json();
+    if (typeof settings.timezone === 'string' && settings.timezone) {
+      setAppTimezone(settings.timezone);
+    }
+    if (typeof settings.language === 'string' && settings.language) {
+      setAppLanguage(settings.language);
+    }
+  } catch {
+    // 网络不可用时保留本地缓存，避免阻塞状态页启动。
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 import '@fontsource/plus-jakarta-sans/latin-300.css';
 import '@fontsource/plus-jakarta-sans/latin-400.css';
 import '@fontsource/plus-jakarta-sans/latin-500.css';
@@ -83,7 +104,12 @@ import './styles/base.css';
 // Font Awesome
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
-const app = createApp(App);
-app.use(router);
-app.use(i18n);
-app.mount('#app');
+async function bootstrap() {
+  await loadSharedPreferences();
+  const app = createApp(App);
+  app.use(router);
+  app.use(i18n);
+  app.mount('#app');
+}
+
+void bootstrap();

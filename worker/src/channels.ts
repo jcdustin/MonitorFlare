@@ -15,14 +15,22 @@ export const EMAIL_PROVIDERS = ['resend', 'sendgrid', 'mailgun', 'postmark', 'se
 
 type Cfg = Record<string, string>;
 
+function alertVisuals(msg: AlertMessage): { color: string; header: string; event: string; ntfyTag: string } {
+  switch (msg.severity) {
+    case 'warning': return { color: '#f59e0b', header: '#78350f', event: 'monitor.warning', ntfyTag: 'warning' };
+    case 'success': return { color: '#10b981', header: '#064e3b', event: 'monitor.up', ntfyTag: 'white_check_mark' };
+    default: return { color: '#f43f5e', header: '#4c0519', event: 'monitor.down', ntfyTag: 'rotating_light' };
+  }
+}
+
 // ---------- 邮件 HTML 模板 ----------
 function buildEmailHtml(msg: AlertMessage): string {
-  const isDown = msg.isDown;
-  const statusColor = isDown ? '#f43f5e' : '#10b981';
+  const visuals = alertVisuals(msg);
+  const statusColor = visuals.color;
   const t = msg.time;
   return `
 <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#0f172a;border-radius:16px;overflow:hidden;border:1px solid #1e293b">
-  <div style="padding:28px;background:linear-gradient(135deg,${isDown ? '#4c0519' : '#064e3b'},#0f172a);border-bottom:1px solid #1e293b">
+  <div style="padding:28px;background:linear-gradient(135deg,${visuals.header},#0f172a);border-bottom:1px solid #1e293b">
     <h2 style="margin:0;color:#f8fafc;font-size:18px">${msg.title}</h2>
   </div>
   <div style="padding:28px;color:#cbd5e1;line-height:1.8;font-size:15px">
@@ -129,7 +137,7 @@ async function sendWebhook(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
   const { url, method, headers: headersStr } = cfg;
   if (!url) return false;
   const payload = {
-    event: msg.isDown ? 'monitor.down' : 'monitor.up',
+    event: alertVisuals(msg).event,
     monitor: { name: msg.monitorName, url: msg.monitorUrl },
     status: msg.statusText, detail: msg.detail, timestamp: msg.time,
   };
@@ -143,7 +151,7 @@ async function sendWebhook(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
 async function sendSlack(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
   const { webhook_url } = cfg;
   if (!webhook_url) return false;
-  const color = msg.isDown ? '#f43f5e' : '#10b981';
+  const color = alertVisuals(msg).color;
   const payload = {
     attachments: [{
       color,
@@ -167,7 +175,7 @@ async function sendSlack(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
 async function sendDiscord(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
   const { webhook_url } = cfg;
   if (!webhook_url) return false;
-  const color = msg.isDown ? 0xf43f5e : 0x10b981;
+  const color = Number.parseInt(alertVisuals(msg).color.slice(1), 16);
   const payload = {
     embeds: [{
       title: msg.title,
@@ -192,7 +200,7 @@ async function sendNtfy(cfg: Cfg, msg: AlertMessage): Promise<boolean> {
   const { topic, server, token } = cfg;
   if (!topic) return false;
   const base = (server || 'https://ntfy.sh').replace(/\/$/, '');
-  const headers: Record<string, string> = { 'Title': msg.title, 'Tags': msg.isDown ? 'rotating_light' : 'white_check_mark' };
+  const headers: Record<string, string> = { 'Title': msg.title, 'Tags': alertVisuals(msg).ntfyTag };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const body = `${msg.monitorName} ${msg.monitorUrl}\n${msg.statusText}\n${msg.detail}\n${msg.time}`;
   const resp = await fetch(`${base}/${topic}`, { method: 'POST', headers, body });

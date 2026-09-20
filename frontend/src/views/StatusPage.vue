@@ -2,7 +2,7 @@
   <div class="min-h-screen flex flex-col text-slate-800 dark:text-slate-200 grid-bg">
     <StatusHeader :loading="loading" :isDark="isDark" :siteSettings="siteSettings" @toggle-theme="toggleTheme" />
 
-    <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-10">
       <!-- 锁屏(私密模式) -->
       <StatusLockScreen v-if="locked" :title="siteSettings.site_title || 'MonitorFlare'" @unlocked="onUnlocked" />
 
@@ -66,17 +66,19 @@
           </div>
         </div>
 
-        <div class="space-y-6">
-          <section v-for="section in monitorSections" :key="section.name" class="space-y-3">
-            <div v-if="monitorSections.length > 1" class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-500 dark:text-slate-500 flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                {{ section.name }}
-              </h3>
-              <span class="text-[11px] font-mono text-slate-400 dark:text-slate-600">{{ $t('statusPage.items', { count: section.items.length }) }}</span>
-            </div>
-            <MonitorCard v-for="(m, idx) in section.items" :key="m.id" :monitor="m" :index="idx" />
-          </section>
+        <div v-if="allTags.length > 0" class="mb-5 flex flex-wrap items-center gap-1.5">
+          <button class="tag-filter-btn" :class="!activeTag ? 'active' : ''" @click="selectTag('')">{{ $t('common.all') }}</button>
+          <button v-for="tag in allTags" :key="tag" class="tag-filter-btn"
+            :class="activeTag === tag ? 'active' : ''" @click="selectTag(activeTag === tag ? '' : tag)">
+            {{ tag }}
+          </button>
+          <span class="ml-auto text-[11px] font-mono text-slate-400 dark:text-slate-600">
+            {{ $t('statusPage.items', { count: visibleMonitors.length }) }}
+          </span>
+        </div>
+
+        <div class="space-y-3">
+          <MonitorCard v-for="(m, idx) in visibleMonitors" :key="m.id" :monitor="m" :index="idx" @select-tag="selectTag" />
         </div>
       </div>
 
@@ -143,6 +145,7 @@ const subOk = ref(false);
 const subscribing = ref(false);
 const locked = ref(false);
 const statusToken = ref(localStorage.getItem(STATUS_TOKEN_KEY) || '');
+const activeTag = ref('');
 
 const activeMonitors = computed(() => monitors.value.filter(m => m.paused !== 1 && m.status !== 'PAUSED'));
 const allUp = computed(() => activeMonitors.value.length > 0 && activeMonitors.value.every(m => m.status === 'UP'));
@@ -153,15 +156,17 @@ const avgLatency = computed(() => {
     if (active.length === 0) return null;
     return Math.round(active.reduce((sum, m) => sum + m.latency, 0) / active.length);
 });
-const monitorSections = computed(() => {
-    const groups = new Map();
-    for (const monitor of monitors.value) {
-        const tag = (monitor.tags || '').split(',').map(x => x.trim()).filter(Boolean)[0] || t('statusPage.ungrouped');
-        if (!groups.has(tag)) groups.set(tag, []);
-        groups.get(tag).push(monitor);
-    }
-    return [...groups.entries()].map(([name, items]) => ({ name, items }));
+const parseTags = (tags) => tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+const allTags = computed(() => {
+    const tags = new Set();
+    monitors.value.forEach(monitor => parseTags(monitor.tags).forEach(tag => tags.add(tag)));
+    return [...tags].sort((a, b) => a.localeCompare(b));
 });
+const visibleMonitors = computed(() => activeTag.value
+    ? monitors.value.filter(monitor => parseTags(monitor.tags).includes(activeTag.value))
+    : monitors.value
+);
+const selectTag = (tag) => { activeTag.value = tag; };
 
 const fetchMonitors = async () => {
     loading.value = true;

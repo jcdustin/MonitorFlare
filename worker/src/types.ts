@@ -16,6 +16,7 @@ export interface Monitor {
   interval: number;
   status: 'UP' | 'DOWN' | 'RETRYING' | 'PAUSED';
   retry_count: number;
+  retry_started_at: string | null;
   last_check: string | null;
   keyword: string | null;
   user_agent: string | null;
@@ -37,6 +38,7 @@ export interface Monitor {
   last_alert_uptime: string | null;
   last_alert_ssl: string | null;
   last_alert_domain: string | null;
+  last_alert_error_rate: string | null;
   sort_order: number;
   created_at: string;
 }

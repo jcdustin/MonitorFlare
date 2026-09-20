@@ -57,10 +57,20 @@
               </label>
             </div>
           </div>
-          <!-- 告警静默窗口 -->
+          <!-- 告警规则 -->
           <div>
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">{{ $t('configModal.alertFrequency') }}</h4>
             <p class="text-xs text-slate-500 mb-4">{{ $t('configModal.alertHint') }}</p>
+            <div class="mb-5 pb-4 border-b border-slate-700/50">
+              <div class="flex items-center gap-2 text-xs text-slate-400 mb-2"><i class="fas fa-heartbeat text-red-400 w-3"></i><span>{{ $t('configModal.consecutiveFailures') }}</span></div>
+              <div class="grid grid-cols-3 gap-1.5">
+                <label v-for="count in [3, 5, 10]" :key="count"
+                  class="flex flex-col items-center justify-center py-2 rounded-lg border-2 cursor-pointer transition-all text-center"
+                  :class="Number(configForm.alert_after_failures) === count ? 'border-green-500 bg-green-900/20 text-green-400' : 'border-slate-700 text-slate-400 hover:border-green-500/40'">
+                  <input :name="`alert-after-failures-${configTarget?.id}`" type="radio" :value="count" v-model="configForm.alert_after_failures" class="sr-only"><span class="text-sm font-bold">{{ count }}</span>
+                </label>
+              </div>
+            </div>
             <div class="mb-5 pb-4 border-b border-slate-700/50">
               <div class="flex items-center gap-2 text-xs text-slate-400 mb-2"><i class="fas fa-exclamation-triangle text-orange-400 w-3"></i><span>{{ $t('configModal.errorRate') }}</span></div>
               <div class="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-700">
@@ -72,15 +82,19 @@
               </div>
             </div>
             <div class="space-y-4">
-              <div v-for="item in silenceItems" :key="item.key">
-                <div class="flex items-center gap-2 text-xs text-slate-400 mb-2"><i :class="item.icon + ' w-3'"></i><span>{{ item.label }}</span></div>
+              <div>
+                <div class="flex items-center gap-2 text-xs text-slate-400 mb-2"><i class="fas fa-heartbeat text-red-400 w-3"></i><span>{{ $t('configModal.alertUptime') }}</span></div>
                 <div class="grid grid-cols-5 gap-1.5">
                   <label v-for="opt in silenceOptions" :key="opt.value"
                     class="flex flex-col items-center justify-center py-2 rounded-lg border-2 cursor-pointer transition-all text-center"
-                    :class="configForm[item.key] === opt.value ? 'border-green-500 bg-green-900/20 text-green-400' : 'border-slate-700 text-slate-400 hover:border-green-500/40'">
-                    <input type="radio" :value="opt.value" v-model="configForm[item.key]" class="sr-only"><span class="text-sm font-bold">{{ opt.label }}</span>
+                    :class="Number(configForm.alert_silence_uptime) === opt.value ? 'border-green-500 bg-green-900/20 text-green-400' : 'border-slate-700 text-slate-400 hover:border-green-500/40'">
+                    <input :name="`alert-uptime-reminder-${configTarget?.id}`" type="radio" :value="opt.value" v-model="configForm.alert_silence_uptime" class="sr-only"><span class="text-sm font-bold">{{ opt.label }}</span>
                   </label>
                 </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                <div class="rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2.5 text-slate-400"><i class="fas fa-lock text-blue-400 mr-1.5"></i>{{ $t('configModal.alertSsl') }}<span class="block mt-1 text-slate-500">30d · 14d · 7d · 3d · 1d</span></div>
+                <div class="rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2.5 text-slate-400"><i class="fas fa-globe text-green-400 mr-1.5"></i>{{ $t('configModal.alertDomain') }}<span class="block mt-1 text-slate-500">30d · 14d · 7d · 3d · 1d</span></div>
               </div>
             </div>
           </div>
@@ -97,15 +111,8 @@
 </template>
 
 <script setup>
-import { useI18n } from 'vue-i18n';
 defineProps({ configTarget: Object, configForm: Object, configSaving: Boolean });
 defineEmits(['close', 'save']);
 
-const { t } = useI18n();
 const silenceOptions = [{ value: 1, label: '1h' }, { value: 4, label: '4h' }, { value: 12, label: '12h' }, { value: 24, label: '24h' }, { value: 72, label: '72h' }];
-const silenceItems = [
-    { key: 'alert_silence_uptime', label: t('configModal.alertUptime'), icon: 'fas fa-heartbeat text-red-400' },
-    { key: 'alert_silence_ssl', label: t('configModal.alertSsl'), icon: 'fas fa-lock text-blue-400' },
-    { key: 'alert_silence_domain', label: t('configModal.alertDomain'), icon: 'fas fa-globe text-green-400' },
-];
 </script>

@@ -15,6 +15,7 @@ const INIT_STATEMENTS: string[] = [
     interval INTEGER DEFAULT 300,
     status TEXT DEFAULT 'UP',
     retry_count INTEGER DEFAULT 0,
+    retry_started_at DATETIME,
     last_check DATETIME, keyword TEXT, user_agent TEXT, tags TEXT,
     domain_expiry TEXT, cert_expiry TEXT, check_info_status TEXT,
     last_info_attempt TEXT, info_status TEXT, last_info_error TEXT,
@@ -24,8 +25,8 @@ const INIT_STATEMENTS: string[] = [
     alert_silence_ssl INTEGER DEFAULT 24,
     alert_silence_domain INTEGER DEFAULT 24,
     alert_error_rate INTEGER DEFAULT 0,
-    alert_after_failures INTEGER DEFAULT 1,
-    last_alert_uptime TEXT, last_alert_ssl TEXT, last_alert_domain TEXT,
+    alert_after_failures INTEGER DEFAULT 5,
+    last_alert_uptime TEXT, last_alert_ssl TEXT, last_alert_domain TEXT, last_alert_error_rate TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -77,6 +78,14 @@ const INIT_STATEMENTS: string[] = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_used_at DATETIME
   )`,
+  `CREATE TABLE IF NOT EXISTS expiry_alerts (
+    monitor_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    threshold_days INTEGER NOT NULL,
+    expiry_at TEXT NOT NULL,
+    notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (monitor_id, kind, threshold_days, expiry_at)
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_monitors_paused ON monitors(paused, id)`,
   `CREATE INDEX IF NOT EXISTS idx_incidents_active ON incidents(type, status, scheduled_start, scheduled_end)`,
 ];
@@ -93,7 +102,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   status_page_password: '',
   alert_template_down: 'Error: {reason}',
   alert_template_up: 'Response time: {latency}ms',
-  alert_template_error_rate: 'Error rate alert: {error_rate}% in last 5 minutes, threshold {threshold}%',
+  alert_template_error_rate: 'Error rate alert: {error_rate}% in the last 5 checks, threshold {threshold}%',
 };
 
 let initPromise: Promise<boolean> | null = null;
@@ -115,10 +124,27 @@ export async function ensureInitialized(env: Bindings): Promise<boolean> {
         // 兼容旧库:补列
         await ensureColumn(env, 'monitors', 'type', "TEXT DEFAULT 'http'");
         await ensureColumn(env, 'monitors', 'config', 'TEXT');
-        await ensureColumn(env, 'monitors', 'alert_after_failures', 'INTEGER DEFAULT 1');
+        await ensureColumn(env, 'monitors', 'alert_after_failures', 'INTEGER DEFAULT 5');
+        await ensureColumn(env, 'monitors', 'retry_started_at', 'DATETIME');
         await ensureColumn(env, 'monitors', 'last_info_attempt', 'TEXT');
         await ensureColumn(env, 'monitors', 'info_status', 'TEXT');
         await ensureColumn(env, 'monitors', 'last_info_error', 'TEXT');
+        await ensureColumn(env, 'monitors', 'last_alert_error_rate', 'TEXT');
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS expiry_alerts (
+          monitor_id INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          threshold_days INTEGER NOT NULL,
+          expiry_at TEXT NOT NULL,
+          notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (monitor_id, kind, threshold_days, expiry_at)
+        )`).run();
+        // 旧版界面从未暴露该字段，所有既有监控都带有默认值 1。
+        // 将其一次性迁移到产品默认的「5 次快速确认」，保留日后用户手动选择的值。
+        const alertLogicMigration = await env.DB.prepare("SELECT value FROM settings WHERE key = 'alert_logic_v2'").first<{ value: string }>();
+        if (!alertLogicMigration) {
+          await env.DB.prepare('UPDATE monitors SET alert_after_failures = 5 WHERE alert_after_failures = 1').run();
+          await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('alert_logic_v2', '1')").run();
+        }
         return true;
       } catch (e) {
         console.error('Init failed:', e);

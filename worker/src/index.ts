@@ -23,11 +23,11 @@ import {
 
 const MONITOR_COLUMNS = `
   id, name, url, type, config, method, request_headers, request_body, interval, status,
-  retry_count, last_check, keyword, user_agent, tags, domain_expiry, cert_expiry,
+  retry_count, retry_started_at, last_check, keyword, user_agent, tags, domain_expiry, cert_expiry,
   check_info_status, last_info_attempt, info_status, last_info_error,
   paused, check_ssl, check_domain, alert_silence_uptime,
   alert_silence_ssl, alert_silence_domain, alert_error_rate, alert_after_failures,
-  last_alert_uptime, last_alert_ssl, last_alert_domain, sort_order, created_at
+  last_alert_uptime, last_alert_ssl, last_alert_domain, last_alert_error_rate, sort_order, created_at
 `;
 
 // ============================================================
@@ -449,7 +449,7 @@ app.post('/monitors', async (c) => {
     const type = (['dns', 'port'].includes(body.type || '') ? body.type : 'http') as Monitor['type'];
     const method = (body.method || 'GET').toUpperCase();
     const config = body.config || null;
-    const alertAfterFailures = Number(body.alert_after_failures) > 0 ? Number(body.alert_after_failures) : 1;
+    const alertAfterFailures = Number(body.alert_after_failures) > 0 ? Number(body.alert_after_failures) : 5;
 
     const result = await c.env.DB.prepare(
       `INSERT INTO monitors (name, url, type, config, method, interval, keyword, user_agent, tags, request_headers, request_body, alert_after_failures)
@@ -802,19 +802,51 @@ app.delete('/notification-channels/:id', async (c) => {
   }
 });
 
+type TestAlertKind = 'down' | 'warning' | 'recovery';
+
+function buildTestAlertMessage(kind: TestAlertKind, lang: Lang, tz: string) {
+  const now = formatTimeInTz(new Date(), tz);
+  const monitor = { name: 'Test Monitor', url: 'https://example.com/health' };
+
+  if (kind === 'recovery') {
+    return buildAlertMessage(monitor, 'UP', 'Test recovery: the service is responding normally again.', now, lang);
+  }
+
+  const msg = buildAlertMessage(
+    monitor,
+    'DOWN',
+    kind === 'warning'
+      ? 'Test warning: SSL certificate expires in 14 days. This is not an outage.'
+      : 'Test outage: 5 fast confirmation checks failed consecutively.',
+    now,
+    lang,
+  );
+
+  if (kind === 'warning') {
+    msg.title = lang.startsWith('zh') ? 'SSL 证书到期预警（测试）' : 'SSL certificate expiry warning (test)';
+    msg.statusText = lang.startsWith('zh') ? '剩余 14 天' : '14 days remaining';
+    msg.severity = 'warning';
+    msg.isDown = false;
+  }
+
+  return msg;
+}
+
 app.post('/notification-channels/:id/test', async (c) => {
   const id = c.req.param('id');
   try {
     const channel = await c.env.DB.prepare('SELECT * FROM notification_channels WHERE id = ?').bind(id).first<NotificationChannel>();
     if (!channel) return c.json({ error: 'Channel not found' }, 404);
+    const body = await c.req.json<{ kind?: string }>().catch((): { kind?: string } => ({}));
+    const kind = body.kind || 'down';
+    if (!(['down', 'warning', 'recovery'] as string[]).includes(kind)) {
+      return c.json({ error: 'Invalid test kind' }, 400);
+    }
     const lang = isSupportedLang(await getSetting(c.env, 'language'));
     const tz = await getSetting(c.env, 'timezone') || 'UTC';
-    const msg = buildAlertMessage(
-      { name: 'Test Monitor', url: 'https://example.com' }, 'DOWN',
-      'This is a test message to verify your notification channel.', formatTimeInTz(new Date(), tz), lang,
-    );
+    const msg = buildTestAlertMessage(kind as TestAlertKind, lang, tz);
     const sent = await sendToChannel(channel, msg, c.env);
-    return c.json({ success: sent });
+    return c.json({ success: sent, kind });
   } catch (e: unknown) {
     return c.json({ error: e instanceof Error ? e.message : 'Unknown error' }, 500);
   }
@@ -822,12 +854,14 @@ app.post('/notification-channels/:id/test', async (c) => {
 
 app.post('/test-alert', async (c) => {
   try {
+    const body = await c.req.json<{ kind?: string }>().catch((): { kind?: string } => ({}));
+    const kind = body.kind || 'down';
+    if (!(['down', 'warning', 'recovery'] as string[]).includes(kind)) {
+      return c.json({ error: 'Invalid test kind' }, 400);
+    }
     const lang = isSupportedLang(await getSetting(c.env, 'language'));
     const tz = await getSetting(c.env, 'timezone') || 'UTC';
-    const msg = buildAlertMessage(
-      { name: 'Test Monitor', url: 'https://example.com' }, 'DOWN',
-      'This is a test message to verify your notification channels.', formatTimeInTz(new Date(), tz), lang,
-    );
+    const msg = buildTestAlertMessage(kind as TestAlertKind, lang, tz);
     const sent = await sendAlertToAllChannels(c.env, msg);
     return c.json({ success: sent });
   } catch (e: unknown) {
@@ -1241,9 +1275,15 @@ async function checkSites(env: Bindings) {
   await Promise.all(tasks);
 }
 
+const FAST_CONFIRMATION_INTERVAL_MS = 3 * 60 * 1000;
+
 function isTimeToCheck(monitor: Monitor, now: number): boolean {
-  if (monitor.status === 'RETRYING') return true;
   const lastCheck = monitor.last_check ? new Date(monitor.last_check).getTime() : 0;
+  // 首次失败后，以及确认 DOWN 后，都使用更快的探测频率。
+  // 这样不会把 15/30 分钟的普通巡检间隔带入事故确认和恢复检测。
+  if (monitor.status === 'RETRYING' || monitor.status === 'DOWN') {
+    return now - lastCheck >= FAST_CONFIRMATION_INTERVAL_MS;
+  }
   const intervalMs = (monitor.interval || 300) * 1000;
   return now - lastCheck >= intervalMs;
 }
@@ -1293,65 +1333,90 @@ async function performMonitorCheck(monitor: Monitor, env: Bindings) {
     }
   }
 
-  // 状态机: 连续失败计数 → 告警
-  const afterFailures = Math.max(1, monitor.alert_after_failures || 1);
+  // 状态机：首次失败进入每 3 分钟一次的确认模式；连续失败达到阈值才进入真实 DOWN 事件。
+  const afterFailures = Math.max(1, monitor.alert_after_failures || 5);
   const lang = isSupportedLang(await getSetting(env, 'language'));
   const tz = await getSetting(env, 'timezone') || 'UTC';
 
   if (!result.ok) {
-    const newRetry = (monitor.retry_count || 0) + 1;
-    if (newRetry >= afterFailures && monitor.status === 'UP') {
-      await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, last_check = ? WHERE id = ?')
-        .bind('DOWN', 0, new Date().toISOString(), monitor.id).run();
-      await sendUptimeAlert(env, monitor, 'DOWN', result.reason, lang, tz);
+    if (monitor.status === 'DOWN') {
+      // 已是事故状态：保留 DOWN，只按「持续宕机提醒」间隔发送后续通知。
+      await env.DB.prepare('UPDATE monitors SET last_check = ?, retry_started_at = NULL WHERE id = ?')
+        .bind(new Date().toISOString(), monitor.id).run();
+      await sendUptimeAlert(env, monitor, 'DOWN', result.reason, lang, tz, false);
     } else {
-      await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, last_check = ? WHERE id = ?')
-        .bind('RETRYING', newRetry, new Date().toISOString(), monitor.id).run();
+      const newRetry = (monitor.retry_count || 0) + 1;
+      const retryStartedAt = monitor.status === 'RETRYING' && monitor.retry_started_at
+        ? monitor.retry_started_at
+        : new Date().toISOString();
+      if (newRetry >= afterFailures) {
+        await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, retry_started_at = NULL, last_check = ? WHERE id = ?')
+          .bind('DOWN', 0, new Date().toISOString(), monitor.id).run();
+        // 新事故必须立即送达；不能被上一轮事故的提醒时间误抑制。
+        await sendUptimeAlert(env, monitor, 'DOWN', result.reason, lang, tz, true);
+      } else {
+        await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, retry_started_at = ?, last_check = ? WHERE id = ?')
+          .bind('RETRYING', newRetry, retryStartedAt, new Date().toISOString(), monitor.id).run();
+      }
     }
   } else {
-    if (monitor.status === 'DOWN' || monitor.status === 'RETRYING') {
-      await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, last_check = ? WHERE id = ?')
+    const wasDown = monitor.status === 'DOWN';
+    const wasRetrying = monitor.status === 'RETRYING';
+    if (wasDown || wasRetrying) {
+      await env.DB.prepare('UPDATE monitors SET status = ?, retry_count = ?, retry_started_at = NULL, last_check = ? WHERE id = ?')
         .bind('UP', 0, new Date().toISOString(), monitor.id).run();
-      await sendUptimeAlert(env, monitor, 'UP', result.reason || `Response time: ${result.latency}ms`, lang, tz);
+      // 短暂失败恢复无需打扰；只有真正 DOWN 后恢复才发送 UP。
+      if (wasDown) {
+        await sendUptimeAlert(env, monitor, 'UP', result.reason || `Response time: ${result.latency}ms`, lang, tz);
+      } else if (wasRetrying && monitor.alert_error_rate > 0) {
+        // 错误率只在快速确认窗口恢复时计算，避免普通低频巡检拖慢告警。
+        await checkErrorRate(env, monitor, lang, tz, monitor.retry_started_at);
+      }
     } else {
       await env.DB.prepare('UPDATE monitors SET last_check = ? WHERE id = ?')
         .bind(new Date().toISOString(), monitor.id).run();
     }
   }
 
-  // 错误率告警(过去 5 分钟)
-  if (monitor.alert_error_rate > 0) {
-    await checkErrorRate(env, monitor, lang, tz);
-  }
-
   return result;
 }
 
-async function sendUptimeAlert(env: Bindings, monitor: Monitor, type: 'DOWN' | 'UP', detail: string, lang: Lang, tz: string) {
-  const silenceH = monitor.alert_silence_uptime || 24;
+async function sendUptimeAlert(env: Bindings, monitor: Monitor, type: 'DOWN' | 'UP', detail: string, lang: Lang, tz: string, force = false): Promise<boolean> {
+  const reminderH = Math.max(1, monitor.alert_silence_uptime || 24);
   const lastAlert = monitor.last_alert_uptime ? new Date(monitor.last_alert_uptime).getTime() : 0;
-  if (type === 'DOWN' && Date.now() - lastAlert < silenceH * 3_600_000) return;
+  if (type === 'DOWN' && !force && Date.now() - lastAlert < reminderH * 3_600_000) return false;
   const msg = buildAlertMessage({ name: monitor.name, url: monitor.url }, type, detail, formatTimeInTz(new Date(), tz), lang);
-  await sendAlertToAllChannels(env, msg);
-  await env.DB.prepare('UPDATE monitors SET last_alert_uptime = ? WHERE id = ?')
-    .bind(new Date().toISOString(), monitor.id).run();
+  const delivered = await sendAlertToAllChannels(env, msg);
+  if (type === 'DOWN' && delivered) {
+    await env.DB.prepare('UPDATE monitors SET last_alert_uptime = ? WHERE id = ?')
+      .bind(new Date().toISOString(), monitor.id).run();
+  }
+  return delivered;
 }
 
-async function checkErrorRate(env: Bindings, monitor: Monitor, lang: Lang, tz: string) {
-  const row = await env.DB.prepare(`
-    SELECT COUNT(*) as total, SUM(CASE WHEN is_fail=1 THEN 1 ELSE 0 END) as fails
-    FROM logs WHERE monitor_id = ? AND created_at >= datetime('now','-5 minutes')
-  `).bind(monitor.id).first<{ total: number; fails: number }>();
-  const total = row?.total || 0;
-  const fails = row?.fails || 0;
-  if (total >= 5 && fails / total >= monitor.alert_error_rate / 100) {
-    const lastAlert = monitor.last_alert_uptime ? new Date(monitor.last_alert_uptime).getTime() : 0;
-    if (Date.now() - lastAlert > 3600_000) { // 错误率告警 1 小时静默
-      const detail = `Error rate ${((fails / total) * 100).toFixed(1)}% in last 5 minutes (threshold ${monitor.alert_error_rate}%)`;
+async function checkErrorRate(env: Bindings, monitor: Monitor, lang: Lang, tz: string, retryStartedAt: string | null) {
+  if (!retryStartedAt) return;
+  const { results } = await env.DB.prepare(`
+    SELECT is_fail FROM logs
+    WHERE monitor_id = ? AND created_at >= datetime(?)
+    ORDER BY created_at DESC LIMIT 5
+  `).bind(monitor.id, retryStartedAt).all<{ is_fail: number }>();
+  const total = results?.length || 0;
+  const fails = (results || []).filter(row => row.is_fail === 1).length;
+  if (total >= 3 && fails / total >= monitor.alert_error_rate / 100) {
+    const lastAlert = monitor.last_alert_error_rate ? new Date(monitor.last_alert_error_rate).getTime() : 0;
+    if (Date.now() - lastAlert > 86_400_000) { // 错误率独立 24 小时提醒间隔
+      const detail = `Error rate ${((fails / total) * 100).toFixed(1)}% across ${total} fast confirmation checks (threshold ${monitor.alert_error_rate}%)`;
       const msg = buildAlertMessage({ name: monitor.name, url: monitor.url }, 'DOWN', detail, formatTimeInTz(new Date(), tz), lang);
-      await sendAlertToAllChannels(env, msg);
-      await env.DB.prepare('UPDATE monitors SET last_alert_uptime = ? WHERE id = ?')
-        .bind(new Date().toISOString(), monitor.id).run();
+      msg.title = lang.startsWith('zh') ? '错误率告警' : 'Error-rate alert';
+      msg.statusText = `${((fails / total) * 100).toFixed(1)}%`;
+      msg.severity = 'warning';
+      msg.isDown = false;
+      const delivered = await sendAlertToAllChannels(env, msg);
+      if (delivered) {
+        await env.DB.prepare('UPDATE monitors SET last_alert_error_rate = ? WHERE id = ?')
+          .bind(new Date().toISOString(), monitor.id).run();
+      }
     }
   }
 }
@@ -1378,7 +1443,61 @@ async function sendAlertToAllChannels(env: Bindings, msg: ReturnType<typeof buil
   return false;
 }
 
-// 证书 / 域名到期告警(每 2 小时)
+const EXPIRY_WARNING_DAYS = [30, 14, 7, 3, 1];
+
+function getExpiryWarningThreshold(daysLeft: number): number | null {
+  for (let index = EXPIRY_WARNING_DAYS.length - 1; index >= 0; index--) {
+    const threshold = EXPIRY_WARNING_DAYS[index];
+    if (daysLeft <= threshold) return threshold;
+  }
+  return null;
+}
+
+async function sendExpiryAlert(
+  env: Bindings,
+  monitor: Monitor,
+  kind: 'ssl' | 'domain',
+  expiryAt: string,
+  lang: Lang,
+  tz: string,
+): Promise<void> {
+  const expiryMs = new Date(expiryAt).getTime();
+  if (!Number.isFinite(expiryMs)) return;
+
+  const daysLeft = Math.max(0, Math.ceil((expiryMs - Date.now()) / 86_400_000));
+  const threshold = getExpiryWarningThreshold(daysLeft);
+  if (threshold === null) return;
+
+  const prior = await env.DB.prepare(`
+    SELECT 1 FROM expiry_alerts
+    WHERE monitor_id = ? AND kind = ? AND threshold_days = ? AND expiry_at = ?
+  `).bind(monitor.id, kind, threshold, expiryAt).first();
+  if (prior) return;
+
+  const label = kind === 'ssl' ? 'SSL certificate' : 'Domain';
+  const msg = buildAlertMessage(
+    { name: monitor.name, url: monitor.url },
+    'DOWN',
+    `${label} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expiryAt})`,
+    formatTimeInTz(new Date(), tz),
+    lang,
+  );
+  msg.title = lang.startsWith('zh')
+    ? (kind === 'ssl' ? 'SSL 证书到期提醒' : '域名到期提醒')
+    : (kind === 'ssl' ? 'SSL certificate expiry reminder' : 'Domain expiry reminder');
+  msg.statusText = lang.startsWith('zh') ? `剩余 ${daysLeft} 天` : `${daysLeft} days remaining`;
+  msg.severity = 'warning';
+  msg.isDown = false;
+  const delivered = await sendAlertToAllChannels(env, msg);
+  if (delivered) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO expiry_alerts (monitor_id, kind, threshold_days, expiry_at)
+      VALUES (?, ?, ?, ?)
+    `).bind(monitor.id, kind, threshold, expiryAt).run();
+  }
+}
+
+// 证书 / 域名到期告警：每天检查一次；固定在 30、14、7、3、1 天节点通知。
 async function checkExpiryAlerts(env: Bindings) {
   const lang = isSupportedLang(await getSetting(env, 'language'));
   const tz = await getSetting(env, 'timezone') || 'UTC';
@@ -1386,33 +1505,11 @@ async function checkExpiryAlerts(env: Bindings) {
     SELECT ${MONITOR_COLUMNS} FROM monitors WHERE paused = 0 AND type = 'http' AND (check_ssl = 1 OR check_domain = 1)
   `).all<Monitor>();
   for (const monitor of results || []) {
-    const now = Date.now();
-    const dayMs = 86_400_000;
-    // SSL
     if (monitor.check_ssl && monitor.cert_expiry) {
-      const exp = new Date(monitor.cert_expiry).getTime();
-      const daysLeft = Math.floor((exp - now) / dayMs);
-      const lastAlert = monitor.last_alert_ssl ? new Date(monitor.last_alert_ssl).getTime() : 0;
-      if (daysLeft <= (monitor.alert_silence_ssl || 24) && now - lastAlert > dayMs) {
-        const msg = buildAlertMessage({ name: monitor.name, url: monitor.url }, 'DOWN',
-          `SSL certificate expires in ${daysLeft} days (${monitor.cert_expiry})`, formatTimeInTz(new Date(), tz), lang);
-        await sendAlertToAllChannels(env, msg);
-        await env.DB.prepare('UPDATE monitors SET last_alert_ssl = ? WHERE id = ?')
-          .bind(new Date().toISOString(), monitor.id).run();
-      }
+      await sendExpiryAlert(env, monitor, 'ssl', monitor.cert_expiry, lang, tz);
     }
-    // Domain
     if (monitor.check_domain && monitor.domain_expiry) {
-      const exp = new Date(monitor.domain_expiry).getTime();
-      const daysLeft = Math.floor((exp - now) / dayMs);
-      const lastAlert = monitor.last_alert_domain ? new Date(monitor.last_alert_domain).getTime() : 0;
-      if (daysLeft <= (monitor.alert_silence_domain || 24) && now - lastAlert > dayMs) {
-        const msg = buildAlertMessage({ name: monitor.name, url: monitor.url }, 'DOWN',
-          `Domain expires in ${daysLeft} days (${monitor.domain_expiry})`, formatTimeInTz(new Date(), tz), lang);
-        await sendAlertToAllChannels(env, msg);
-        await env.DB.prepare('UPDATE monitors SET last_alert_domain = ? WHERE id = ?')
-          .bind(new Date().toISOString(), monitor.id).run();
-      }
+      await sendExpiryAlert(env, monitor, 'domain', monitor.domain_expiry, lang, tz);
     }
   }
 }
@@ -1453,8 +1550,8 @@ async function cleanupAndAggregate(env: Bindings) {
 async function runScheduledTasks(env: Bindings) {
   await ensureInitialized(env);
   const tasks: Promise<void>[] = [checkSites(env)];
-  const hour = new Date().getUTCHours();
-  if (hour === 2) {
+  const now = new Date();
+  if (now.getUTCHours() === 2 && now.getUTCMinutes() === 0) {
     tasks.push(cleanupAndAggregate(env));
     tasks.push(checkExpiryAlerts(env));
   }

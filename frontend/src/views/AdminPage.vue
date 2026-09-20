@@ -87,6 +87,7 @@
       <MonitorList v-else
         :monitors="monitors" :filteredMonitors="filteredMonitors" :allTags="allTags"
         :activeTag="activeTag" :selectedIds="selectedIds" :searchQuery="searchQuery" :sortKey="sortKey"
+        :canReorder="!sortKey"
         @update:activeTag="activeTag = $event" @update:selectedIds="selectedIds = $event"
         @update:searchQuery="searchQuery = $event" @update:sortKey="sortKey = $event"
         @force-check="forceCheck" @toggle-pause="togglePause" @open-config="openConfig"
@@ -195,6 +196,7 @@ const searchQuery = ref('');
 const sortKey = ref('');
 const activeTag = ref('');
 const selectedIds = ref([]);
+watch(activeTag, () => { selectedIds.value = []; });
 
 // ── Modal 控制 ──
 const showAddModal = ref(false);
@@ -206,7 +208,7 @@ const showSettings = ref(false);
 const showApiKeys = ref(false);
 
 // ── 添加监控 ──
-const newMonitor = ref({ name: '', url: '', type: 'http', record_type: 'A', expected: '', port: 443, method: 'GET', keyword: '', user_agent: '', tags: '', request_headers: '', request_body: '', interval: 300, check_ssl: true, check_domain: true, alert_silence_hours: '24', alert_error_rate: 0 });
+const newMonitor = ref({ name: '', url: '', type: 'http', record_type: 'A', expected: '', port: 443, method: 'GET', keyword: '', user_agent: '', tags: '', request_headers: '', request_body: '', interval: 300, check_ssl: true, check_domain: true, alert_silence_hours: '24', alert_after_failures: 5, alert_error_rate: 0 });
 const submitting = ref(false);
 
 // ── 配置面板 ──
@@ -323,7 +325,7 @@ const addMonitor = async () => {
         else if (type === 'port') config = JSON.stringify({ port: Number(port) || 443 });
         const body = { ...rest, type, config, check_ssl: newMonitor.value.check_ssl ? 1 : 0, check_domain: newMonitor.value.check_domain ? 1 : 0, interval: Number(newMonitor.value.interval) };
         const res = await authFetch(`${API_BASE}/monitors`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (res.ok) { newMonitor.value = { name: '', url: '', type: 'http', record_type: 'A', expected: '', port: 443, method: 'GET', keyword: '', user_agent: '', tags: '', request_headers: '', request_body: '', interval: 300, check_ssl: true, check_domain: true, alert_silence_hours: '24', alert_error_rate: 0 }; showAddModal.value = false; addToast(t('adminPage.monitorAdded'), 'success'); fetchMonitors(); }
+        if (res.ok) { newMonitor.value = { name: '', url: '', type: 'http', record_type: 'A', expected: '', port: 443, method: 'GET', keyword: '', user_agent: '', tags: '', request_headers: '', request_body: '', interval: 300, check_ssl: true, check_domain: true, alert_silence_hours: '24', alert_after_failures: 5, alert_error_rate: 0 }; showAddModal.value = false; addToast(t('adminPage.monitorAdded'), 'success'); fetchMonitors(); }
         else { const d = await res.json(); addToast(d.error || t('common.addFailed'), 'error'); }
     } catch { addToast(t('common.networkError'), 'error'); }
     finally { submitting.value = false; }
@@ -350,21 +352,21 @@ const togglePause = async (m) => {
 // ── 克隆 ──
 const cloneMonitor = (m) => {
     let cfg = {}; try { cfg = JSON.parse(m.config || '{}'); } catch {}
-    newMonitor.value = { name: m.name + ' (Copy)', url: m.url, type: m.type || 'http', record_type: cfg.record_type || 'A', expected: cfg.expected || '', port: cfg.port ?? '', method: m.method || 'GET', keyword: m.keyword || '', user_agent: m.user_agent || '', tags: m.tags || '', request_headers: m.request_headers || '', request_body: m.request_body || '', interval: m.interval || 300, check_ssl: m.check_ssl !== 0, check_domain: m.check_domain !== 0, alert_silence_hours: m.alert_silence_uptime || 24, alert_error_rate: m.alert_error_rate || 0 };
+    newMonitor.value = { name: m.name + ' (Copy)', url: m.url, type: m.type || 'http', record_type: cfg.record_type || 'A', expected: cfg.expected || '', port: cfg.port ?? '', method: m.method || 'GET', keyword: m.keyword || '', user_agent: m.user_agent || '', tags: m.tags || '', request_headers: m.request_headers || '', request_body: m.request_body || '', interval: m.interval || 300, check_ssl: m.check_ssl !== 0, check_domain: m.check_domain !== 0, alert_silence_hours: m.alert_silence_uptime || 24, alert_after_failures: m.alert_after_failures || 5, alert_error_rate: m.alert_error_rate || 0 };
     showAddModal.value = true;
 };
 
 // ── 配置 ──
 const openConfig = (m) => {
     configTarget.value = m;
-    configForm.value = { name: m.name || '', url: m.url || '', method: m.method || 'GET', keyword: m.keyword || '', user_agent: m.user_agent || '', tags: m.tags || '', request_headers: m.request_headers || '', request_body: m.request_body || '', interval: m.interval || 300, check_ssl: m.check_ssl !== 0, check_domain: m.check_domain !== 0, alert_silence_uptime: m.alert_silence_uptime ?? 24, alert_silence_ssl: m.alert_silence_ssl ?? 24, alert_silence_domain: m.alert_silence_domain ?? 24, alert_error_rate: m.alert_error_rate ?? 0 };
+    configForm.value = { name: m.name || '', url: m.url || '', method: m.method || 'GET', keyword: m.keyword || '', user_agent: m.user_agent || '', tags: m.tags || '', request_headers: m.request_headers || '', request_body: m.request_body || '', interval: m.interval || 300, check_ssl: m.check_ssl !== 0, check_domain: m.check_domain !== 0, alert_silence_uptime: m.alert_silence_uptime ?? 24, alert_after_failures: m.alert_after_failures ?? 5, alert_error_rate: m.alert_error_rate ?? 0 };
     showConfig.value = true;
 };
 
 const saveConfig = async () => {
     if (!configTarget.value) return; configSaving.value = true;
     try {
-        const body = { name: configForm.value.name, url: configForm.value.url, method: configForm.value.method || 'GET', keyword: configForm.value.keyword, user_agent: configForm.value.user_agent, tags: configForm.value.tags || '', request_headers: configForm.value.request_headers || '', request_body: configForm.value.request_body || '', interval: Number(configForm.value.interval), check_ssl: configForm.value.check_ssl ? 1 : 0, check_domain: configForm.value.check_domain ? 1 : 0, alert_silence_uptime: Number(configForm.value.alert_silence_uptime), alert_silence_ssl: Number(configForm.value.alert_silence_ssl), alert_silence_domain: Number(configForm.value.alert_silence_domain), alert_error_rate: Number(configForm.value.alert_error_rate ?? 0) };
+        const body = { name: configForm.value.name, url: configForm.value.url, method: configForm.value.method || 'GET', keyword: configForm.value.keyword, user_agent: configForm.value.user_agent, tags: configForm.value.tags || '', request_headers: configForm.value.request_headers || '', request_body: configForm.value.request_body || '', interval: Number(configForm.value.interval), check_ssl: configForm.value.check_ssl ? 1 : 0, check_domain: configForm.value.check_domain ? 1 : 0, alert_silence_uptime: Number(configForm.value.alert_silence_uptime), alert_after_failures: Number(configForm.value.alert_after_failures || 5), alert_error_rate: Number(configForm.value.alert_error_rate ?? 0) };
         const res = await authFetch(`${API_BASE}/monitors/${configTarget.value.id}/config`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (res.ok) { addToast(t('adminPage.saved'), 'success'); showConfig.value = false; fetchMonitors(); }
         else { const d = await res.json(); addToast(d.error || t('common.saveFailed'), 'error'); }
@@ -418,7 +420,23 @@ const batchAction = async (action) => {
 
 // ── 排序 ──
 const handleReorder = async (ids) => {
-    try { await authFetch(`${API_BASE}/monitors/reorder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); addToast(t('adminPage.orderSaved'), 'success'); fetchMonitors(); } catch { addToast(t('adminPage.orderSaveFailed'), 'error'); }
+    try {
+        const reorderedSet = new Set(ids);
+        let reorderedIndex = 0;
+        const mergedIds = monitors.value.map(monitor =>
+            reorderedSet.has(monitor.id) ? ids[reorderedIndex++] : monitor.id
+        );
+        const res = await authFetch(`${API_BASE}/monitors/reorder`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: mergedIds }),
+        });
+        if (!res.ok) throw new Error('Unable to save order');
+        addToast(t('adminPage.orderSaved'), 'success');
+        await fetchMonitors();
+    } catch {
+        addToast(t('adminPage.orderSaveFailed'), 'error');
+    }
 };
 
 // ── 导出 ──

@@ -92,6 +92,7 @@ export interface AlertMessage {
   title: string;
   statusText: string;
   time: string;
+  severity: 'critical' | 'warning' | 'success';
   isDown: boolean;
   detail: string;
   monitorName: string;
@@ -113,6 +114,7 @@ export function buildAlertMessage(
     title: isDown ? copy.downTitle : copy.upTitle,
     statusText: isDown ? copy.downLabel : copy.upLabel,
     time,
+    severity: isDown ? 'critical' : 'success',
     isDown,
     detail,
     monitorName: monitor.name,

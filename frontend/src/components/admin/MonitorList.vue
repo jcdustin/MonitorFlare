@@ -18,6 +18,11 @@
       <div v-if="allTags.length > 0" class="flex flex-wrap items-center gap-1.5">
         <button class="tag-filter-btn" :class="!activeTag ? 'active' : ''" @click="$emit('update:activeTag', '')">{{ $t('common.all') }}</button>
         <button v-for="tag in allTags" :key="tag" class="tag-filter-btn" :class="activeTag === tag ? 'active' : ''" @click="$emit('update:activeTag', activeTag === tag ? '' : tag)">{{ tag }}</button>
+        <label v-if="filteredMonitors.length > 0" class="ml-auto flex items-center gap-1.5 text-[11px] font-mono text-slate-500 cursor-pointer" :title="$t('common.all')">
+          <input type="checkbox" class="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer"
+            :checked="allFilteredSelected" @change="toggleAllFiltered">
+          {{ filteredMonitors.length }}
+        </label>
       </div>
       <!-- 批量操作栏 -->
       <div v-if="selectedIds.length > 0" class="bulk-bar">
@@ -30,11 +35,13 @@
     </div>
 
     <!-- 监控卡片列表 -->
-    <div v-for="m in filteredMonitors" :key="m.id"
+    <div v-for="m in filteredMonitors" :key="m.id" :data-monitor-id="m.id"
       class="relative glass rounded-xl px-5 py-4 card-hover flex flex-col md:flex-row md:items-center md:justify-between gap-4 cursor-default group"
       :class="[m.paused ? 'opacity-50' : '', openMenuId === m.id ? 'z-40' : 'z-0']">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="drag-handle shrink-0 cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" :title="$t('adminPage.dragSort')">
+        <div class="drag-handle shrink-0 text-slate-600 transition-opacity"
+          :class="canReorder ? 'cursor-grab active:cursor-grabbing hover:text-slate-400 opacity-0 group-hover:opacity-100' : 'cursor-not-allowed opacity-20'"
+          :title="$t('adminPage.dragSort')">
           <i class="fas fa-grip-vertical text-sm"></i>
         </div>
         <input type="checkbox" :value="m.id" :checked="selectedIds.includes(m.id)" @change="toggleSelected(m.id)"
@@ -120,13 +127,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import Sortable from 'sortablejs';
 import { formatDateFull, formatExpiryDate, getDaysRemaining, getExpiryClassAdmin } from '../../utils/format';
 
 const props = defineProps({
     monitors: Array, filteredMonitors: Array, allTags: Array,
     activeTag: String, selectedIds: Array, searchQuery: String, sortKey: String,
+    canReorder: { type: Boolean, default: true },
 });
 const emit = defineEmits([
     'update:activeTag', 'update:selectedIds', 'update:searchQuery', 'update:sortKey',
@@ -176,16 +184,30 @@ const initSortable = () => {
     const el = listRef.value;
     if (!el) return;
     sortableInstance = new Sortable(el, {
-        handle: '.drag-handle', animation: 200, ghostClass: 'opacity-30', draggable: '.card-hover',
+        handle: '.drag-handle', animation: 200, ghostClass: 'opacity-30', draggable: '.card-hover', disabled: !props.canReorder,
         onEnd: () => {
             const cards = el.querySelectorAll('.card-hover');
-            const ids = [...cards].map((_, idx) => props.filteredMonitors[idx]?.id).filter(Boolean);
+            const ids = [...cards].map(card => Number(card.dataset.monitorId)).filter(Number.isInteger);
             if (ids.length > 0) emit('reorder', ids);
         }
     });
 };
 
-watch(() => props.filteredMonitors.length, () => nextTick(initSortable));
+const allFilteredSelected = computed(() => props.filteredMonitors.length > 0
+    && props.filteredMonitors.every(monitor => props.selectedIds.includes(monitor.id))
+);
+
+const toggleAllFiltered = () => {
+    const filteredIds = props.filteredMonitors.map(monitor => monitor.id);
+    const filteredSet = new Set(filteredIds);
+    const remaining = props.selectedIds.filter(id => !filteredSet.has(id));
+    emit('update:selectedIds', allFilteredSelected.value ? remaining : [...remaining, ...filteredIds]);
+};
+
+watch(
+    () => [props.canReorder, props.filteredMonitors.map(m => m.id).join(',')],
+    () => nextTick(initSortable)
+);
 onMounted(() => {
     nextTick(initSortable);
     window.addEventListener('click', closeMore);
