@@ -50,7 +50,7 @@ app.use('/*', cors({
 const PUBLIC_PATHS = [
   '/auth/', '/monitors/public', '/api/status', '/feed.xml', '/api/subscribe', '/api/unsubscribe', '/webhooks/',
 ];
-const PROTECTED_PREFIXES = ['/monitors', '/notification-channels', '/incidents', '/settings', '/test-alert', '/health', '/api-keys', '/backup', '/api/v1', '/v1'];
+const PROTECTED_PREFIXES = ['/monitors', '/notification-channels', '/incidents', '/settings', '/test-alert', '/health', '/api-keys', '/backup', '/analytics', '/subscriptions', '/api/v1', '/v1'];
 
 // 私密模式下需锁定的公开接口(前缀匹配)
 const STATUS_LOCK_PATHS = [
@@ -725,9 +725,121 @@ app.put('/settings', async (c) => {
 app.get('/health', async (c) => {
   try {
     const row = await c.env.DB.prepare('SELECT 1 as ok').first();
-    return c.json({ status: 'ok', db: !!row, ok: !!row });
+    const last = await c.env.DB.prepare('SELECT MAX(last_check) as last_check FROM monitors').first<{ last_check: string | null }>();
+    return c.json({ status: 'ok', db: !!row, ok: !!row, last_check: last?.last_check || null });
   } catch (e: unknown) {
     return c.json({ status: 'error', db: false, ok: false, error: e instanceof Error ? e.message : 'Unknown error' }, 500);
+  }
+});
+
+app.get('/analytics', async (c) => {
+  try {
+    const range = c.req.query('range') || '7d';
+    const span = range === '24h' ? '-24 hours' : range === '30d' ? '-30 days' : range === '90d' ? '-90 days' : '-7 days';
+    const pointsSql = range === '24h'
+      ? `SELECT strftime('%Y-%m-%dT%H:00:00Z', created_at) as bucket,
+           COUNT(*) as total,
+           SUM(CASE WHEN is_fail = 0 THEN 1 ELSE 0 END) as ok,
+           CAST(AVG(CASE WHEN is_fail = 0 THEN latency END) AS INTEGER) as latency
+         FROM logs WHERE created_at >= datetime('now', ?)
+         GROUP BY bucket ORDER BY bucket`
+      : `SELECT date as bucket,
+           SUM(total_checks) as total,
+           SUM(successful_checks) as ok,
+           CASE WHEN SUM(total_checks) = 0 THEN NULL
+             ELSE CAST(SUM(avg_latency * total_checks) * 1.0 / SUM(total_checks) AS INTEGER) END as latency
+         FROM daily_uptime WHERE date >= date('now', ?)
+         GROUP BY date ORDER BY date`;
+    const { results: pointRows } = await c.env.DB.prepare(pointsSql).bind(span).all<{ bucket: string; total: number; ok: number; latency: number | null }>();
+    const points = (pointRows || []).map(row => {
+      const total = Number(row.total) || 0;
+      const ok = Number(row.ok) || 0;
+      return {
+        timestamp: row.bucket,
+        uptime: total > 0 ? Number(((ok / total) * 100).toFixed(2)) : null,
+        latency: row.latency == null ? null : Number(row.latency),
+        failures: Math.max(0, total - ok),
+        total,
+      };
+    });
+    const { results: latencyRows } = await c.env.DB.prepare(
+      'SELECT latency FROM logs WHERE is_fail = 0 AND latency IS NOT NULL AND created_at >= datetime(\'now\', ?) ORDER BY latency LIMIT 8000'
+    ).bind(span).all<{ latency: number }>();
+    const samples = (latencyRows || []).map(row => Number(row.latency)).filter(n => Number.isFinite(n));
+    const pick = (p: number) => {
+      if (!samples.length) return null;
+      const index = Math.min(samples.length - 1, Math.max(0, Math.ceil((p / 100) * samples.length) - 1));
+      return samples[index];
+    };
+    const totals = points.reduce((acc, point) => {
+      acc.total += point.total;
+      acc.failures += point.failures;
+      return acc;
+    }, { total: 0, failures: 0 });
+    const { results: ranks } = await c.env.DB.prepare(
+      `SELECT m.id, m.name,
+         COUNT(l.id) as total,
+         SUM(CASE WHEN l.is_fail = 0 THEN 1 ELSE 0 END) as ok,
+         CAST(AVG(CASE WHEN l.is_fail = 0 THEN l.latency END) AS INTEGER) as latency
+       FROM monitors m
+       LEFT JOIN logs l ON l.monitor_id = m.id AND l.created_at >= datetime('now', ?)
+       GROUP BY m.id
+       ORDER BY m.sort_order ASC, m.name ASC`
+    ).bind(span).all<{ id: number; name: string; total: number; ok: number; latency: number | null }>();
+    const incidentCount = await c.env.DB.prepare(
+      "SELECT COUNT(*) as c FROM incidents WHERE created_at >= datetime('now', ?)"
+    ).bind(span).first<{ c: number }>();
+    return c.json({
+      range: range === '24h' || range === '30d' || range === '90d' ? range : '7d',
+      points,
+      latency: {
+        avg: samples.length ? Math.round(samples.reduce((sum, n) => sum + n, 0) / samples.length) : null,
+        p50: pick(50),
+        p95: pick(95),
+        p99: pick(99),
+      },
+      failures: totals.failures,
+      checks: totals.total,
+      uptime: totals.total > 0 ? Number((((totals.total - totals.failures) / totals.total) * 100).toFixed(2)) : null,
+      incidents: Number(incidentCount?.c) || 0,
+      ranking: (ranks || []).map(row => {
+        const total = Number(row.total) || 0;
+        const ok = Number(row.ok) || 0;
+        return {
+          id: row.id,
+          name: row.name,
+          uptime: total > 0 ? Number(((ok / total) * 100).toFixed(2)) : null,
+          latency: row.latency == null ? null : Number(row.latency),
+          failures: Math.max(0, total - ok),
+        };
+      }),
+    });
+  } catch (e: unknown) {
+    return c.json({ error: e instanceof Error ? e.message : 'Unknown error' }, 500);
+  }
+});
+
+app.get('/subscriptions', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, email, created_at FROM subscriptions ORDER BY created_at DESC'
+    ).all();
+    return c.json(results || []);
+  } catch (e: unknown) {
+    return c.json({ error: e instanceof Error ? e.message : 'Unknown error' }, 500);
+  }
+});
+
+app.post('/monitors/:id/refresh-info', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid monitor id' }, 400);
+  try {
+    const monitor = await c.env.DB.prepare(`SELECT ${MONITOR_COLUMNS} FROM monitors WHERE id = ?`).bind(id).first<Monitor>();
+    if (!monitor) return c.json({ error: 'Monitor not found' }, 404);
+    const result = await updateDomainCertInfo(c.env, monitor);
+    return c.json(result);
+  } catch (e: unknown) {
+    return c.json({ error: e instanceof Error ? e.message : 'Unknown error' }, 500);
   }
 });
 
