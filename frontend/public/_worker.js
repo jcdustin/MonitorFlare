@@ -56,18 +56,55 @@ export default {
       });
     }
 
-    // 其他路径 → 服务静态资源（SPA fallback）
+    // 静态资源。带扩展名的文件缺失时必须保持 404，不能回退成 index.html，
+    // 否则浏览器会把 HTML 按 JS/CSS 缓存，页面要 Ctrl+F5 才出得来。
     const assetResponse = await env.ASSETS.fetch(request);
+    if (isStaticFile(url.pathname)) {
+      const contentType = assetResponse.headers.get('content-type') || '';
+      const htmlForNonHtml = !url.pathname.endsWith('.html') && contentType.includes('text/html');
+      if (assetResponse.status === 404 || htmlForNonHtml) {
+        return new Response(request.method === 'HEAD' ? null : 'Not found', {
+          status: 404,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+          },
+        });
+      }
+      return withShellCache(assetResponse, url.pathname);
+    }
 
-    // 如果静态资源不存在（404），返回 index.html 让 Vue Router 处理
-    if (assetResponse.status === 404) {
+    if (assetResponse.status === 404 && request.method === 'GET') {
       const indexUrl = new URL('/', url.origin);
-      return env.ASSETS.fetch(new Request(indexUrl, request));
+      const indexResponse = await env.ASSETS.fetch(new Request(indexUrl, request));
+      return withShellCache(indexResponse, '/');
     }
 
     return assetResponse;
   },
 };
+
+function isStaticFile(pathname) {
+  const base = pathname.split('/').pop() || '';
+  return base.includes('.');
+}
+
+function withShellCache(response, pathname) {
+  const fresh = pathname === '/'
+    || pathname === '/index.html'
+    || pathname === '/sw.js'
+    || pathname === '/registerSW.js'
+    || pathname.startsWith('/workbox-');
+  if (!fresh) return response;
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 function buildCorsHeaders(request, env) {
   const origin = request.headers.get('Origin');

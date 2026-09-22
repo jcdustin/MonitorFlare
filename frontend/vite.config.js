@@ -52,7 +52,9 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          globIgnores: ['**/_worker.js'],
           navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
           runtimeCaching: [
             {
               // 状态页公开数据:离线可看最近快照
