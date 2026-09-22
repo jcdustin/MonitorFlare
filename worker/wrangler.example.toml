@@ -22,7 +22,7 @@ database_id = "your-d1-database-id-here"
 # 管理员认证（敏感值不要写进此文件）
 # API Key 优先：npx wrangler secret put ADMIN_API_KEY
 # 密码方式：npx wrangler secret put ADMIN_PASSWORD
-ALLOWED_ORIGIN = "https://monitorflare.pages.dev"
+ALLOWED_ORIGIN = "https://your-project.pages.dev"
 SESSION_TTL_HOURS = "12"
 
 # Magic Link 签名密钥(可选,用于邮件登录)
@@ -38,4 +38,4 @@ SESSION_TTL_HOURS = "12"
 # CF_ACCESS_AUD = "your-audience-tag"
 
 # 站点基础 URL(用于 Magic Link / OAuth 回调 / RSS)
-# BASE_URL = "https://monitorflare.pages.dev"
+# BASE_URL = "https://your-project.pages.dev"

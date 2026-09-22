@@ -3,8 +3,7 @@
 > 서버 비용 제로 웹사이트 모니터링 + 공개 상태 페이지, 모두 Cloudflare 무료 티어에서 실행됩니다.
 > [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor)(MIT) 기반으로 배포되는 강화판입니다.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **README 언어**: [English](README.md) | [中文](README.zh.md) | [日本語](README.ja.md) | 한국어 | [Deutsch](README.de.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Español](README.es.md)
 
@@ -20,7 +19,6 @@
 - **오류율 임계값** 알림, **연속 실패** 알림 에스컬레이션
 - 체크 간격 설정, 일시 중지/재개, 태그, 드래그 정렬
 - **Shields.io 스타일 모니터 유형 배지** — 모니터 이름 옆에 SSL / HTTP / HTTPS / DNS / TCP 유형 표시, 호버 시 초록색(전역 CSS 공유, 상태 카드와 상세 페이지 공용)
-- **원클릭 SSL 심층 검사** — 모니터 URL 옆 깃발 아이콘으로 `csr.plus/check?domain=...` SSL 분석으로 이동(SSL 만료 추적 활성화 시 표시)
 
 ### 알림(9개 채널)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / 일반 Webhook
@@ -53,7 +51,7 @@
 
 ### 옵션 A:원클릭(권장)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. 버튼을 클릭하고 Cloudflare에 로그인
 2. 프롬프트에 따라 `ADMIN_API_KEY`(관리자 비밀번호)를 설정

@@ -3,8 +3,7 @@
 > Monitoreo de sitios web con costo de servidor cero + página de estado pública, todo dentro del plan gratuito de Cloudflare.
 > Versión mejorada distribuida a partir de [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor) (MIT).
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **Idiomas del README**: [English](README.md) | [中文](README.zh.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Italiano](README.it.md) | Español
 
@@ -20,7 +19,6 @@
 - Alertas por **umbral de tasa de error**, **escalado de alertas ante fallos consecutivos**
 - Intervalos de verificación configurables, pausa/reanudación, etiquetas, ordenación por arrastre
 - **Insignias de tipo estilo Shields.io** — tipo SSL / HTTP / HTTPS / DNS / TCP junto al nombre, verde al pasar el ratón (CSS global compartido, tarjetas y página de detalle)
-- **Análisis SSL profundo con un clic** — icono de bandera junto a la URL abre el análisis en `csr.plus/check?domain=...` (visible cuando el seguimiento de caducidad SSL está activado)
 
 ### Notificaciones (9 canales)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / Webhook genérico
@@ -53,7 +51,7 @@
 
 ### Opción A: Un clic (recomendada)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. Haz clic en el botón e inicia sesión en Cloudflare
 2. Configura `ADMIN_API_KEY` (tu contraseña de administrador) cuando se te solicite

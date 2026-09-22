@@ -3,8 +3,7 @@
 > Monitoraggio di siti web a costo server zero + pagina di stato pubblica, tutto nella fascia gratuita di Cloudflare.
 > Versione potenziata distribuita a partire da [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor) (MIT).
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **Lingue del README**: [English](README.md) | [中文](README.zh.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | Italiano | [Español](README.es.md)
 
@@ -20,7 +19,6 @@
 - Avvisi su **soglia di tasso di errore**, **escalation degli avvisi su fallimenti consecutivi**
 - Intervalli di controllo configurabili, pausa/ripresa, tag, ordinamento tramite trascinamento
 - **Badge di tipo in stile Shields.io** — tipo SSL / HTTP / HTTPS / DNS / TCP accanto al nome, verde al passaggio del mouse (CSS globale condiviso, card e pagina di dettaglio)
-- **Analisi SSL approfondita con un clic** — icona bandiera accanto all’URL apre l’analisi su `csr.plus/check?domain=...` (visibile quando il monitoraggio scadenza SSL è attivo)
 
 ### Notifiche (9 canali)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / Webhook generico
@@ -53,7 +51,7 @@
 
 ### Opzione A: Un clic (consigliata)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. Fai clic sul pulsante e accedi a Cloudflare
 2. Imposta `ADMIN_API_KEY` (la tua password di amministratore) quando richiesto

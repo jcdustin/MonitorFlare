@@ -3,8 +3,7 @@
 > サーバー費用ゼロのWebサイト監視 + 公開ステータスページ。すべて Cloudflare の無料枠内で動作します。
 > [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor)(MIT)を基に配布される強化版です。
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **README 言語**: [English](README.md) | [中文](README.zh.md) | 日本語 | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Español](README.es.md)
 
@@ -20,7 +19,6 @@
 - **エラー率しきい値**アラート、**連続失敗**によるアラートエスカレーション
 - チェック間隔の設定、一時停止/再開、タグ、ドラッグ並べ替え
 - **Shields.io スタイルのモニター種別バッジ** — 各モニター名の横に SSL / HTTP / HTTPS / DNS / TCP 種別を表示、ホバーで緑色に（グローバル CSS を共有、ステータスカードと詳細ページで共通）
-- **ワンクリック SSL 詳細チェック** — モニター URL 横の旗アイコンから `csr.plus/check?domain=...` の SSL 詳細分析へ（SSL 有効期限追跡を有効化すると表示）
 
 ### 通知(9 チャンネル)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / 汎用 Webhook
@@ -53,7 +51,7 @@
 
 ### オプション A:ワンクリック(推奨)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. ボタンをクリックして Cloudflare にログイン
 2. プロンプトに従って `ADMIN_API_KEY`(管理者パスワード)を設定

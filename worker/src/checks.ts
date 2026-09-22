@@ -223,7 +223,7 @@ type CertSpotterIssuance = {
 };
 
 const METADATA_FETCH_TIMEOUT_MS = 12_000;
-const METADATA_USER_AGENT = 'MonitorFlare/1.0 (+https://github.com/xusteve/MonitorFlare)';
+const METADATA_USER_AGENT = 'MonitorFlare/1.0 (+https://github.com/jcdustin/MonitorFlare)';
 
 function parseCtDate(value?: string): number {
   if (!value) return Number.NaN;

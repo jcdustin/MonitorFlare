@@ -3,8 +3,7 @@
 > Surveillance de sites web à coût serveur nul + page de statut publique, le tout dans l'offre gratuite de Cloudflare.
 > Version améliorée distribuée à partir d'[Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor) (MIT).
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **Langues du README** : [English](README.md) | [中文](README.zh.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | Français | [Italiano](README.it.md) | [Español](README.es.md)
 
@@ -20,7 +19,6 @@
 - Alertes sur **seuil de taux d'erreur**, **escalade des alertes en cas d'échecs consécutifs**
 - Intervalles de vérification configurables, pause/reprise, étiquettes, tri par glisser-déposer
 - **Badges de type de moniteur style Shields.io** — type SSL / HTTP / HTTPS / DNS / TCP affiché à côté du nom, vert au survol (CSS global partagé, cartes & page de détail)
-- **Analyse SSL approfondie en un clic** — icône drapeau à côté de l’URL ouvre l’analyse sur `csr.plus/check?domain=...` (visible quand le suivi d’expiration SSL est activé)
 
 ### Notifications (9 canaux)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / Webhook générique
@@ -53,7 +51,7 @@
 
 ### Option A : Un clic (recommandé)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. Cliquez sur le bouton et connectez-vous à Cloudflare
 2. Définissez `ADMIN_API_KEY` (votre mot de passe administrateur) lorsque vous y êtes invité

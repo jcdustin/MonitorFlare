@@ -64,11 +64,6 @@
                   {{ monitor.url }}
                   <svg class="w-2.5 h-2.5 opacity-70 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                 </a>
-                <a v-if="monitor.cert_expiry && sslCheckUrl" :href="sslCheckUrl" target="_blank" rel="noopener"
-                  class="flex items-center gap-1 text-[12px] font-mono text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors shrink-0"
-                  :title="$t('monitorCard.sslCheck')">
-                  <i class="fa-regular fa-flag"></i>
-                </a>
                 <span v-if="monitor.latency != null && !monitor.paused" class="flex items-center gap-1 text-[12px] font-mono font-medium" :class="latencyTextClass(monitor.latency)">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
                   {{ monitor.latency }}ms
@@ -292,16 +287,6 @@ const statusLabel = computed(() => {
     if (monitor.value?.status === 'UP') return t('status.up');
     if (monitor.value?.status === 'DOWN') return t('status.down');
     return t('status.retrying');
-});
-
-const sslCheckUrl = computed(() => {
-    try {
-        const host = new URL(monitor.value.url).hostname;
-        if (!host) return '';
-        return `https://csr.plus/check?domain=${encodeURIComponent(host)}`;
-    } catch {
-        return '';
-    }
 });
 
 const stats = computed(() => [

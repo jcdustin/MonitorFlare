@@ -39,11 +39,6 @@
             {{ monitor.url }}
             <svg class="w-2.5 h-2.5 opacity-70 group-hover/link:opacity-100 transition-opacity duration-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
           </a>
-          <a v-if="monitor.cert_expiry && sslCheckUrl" :href="sslCheckUrl" target="_blank" rel="noopener"
-            class="flex items-center gap-1 text-[11px] sm:text-[12px] font-mono text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors cursor-pointer shrink-0"
-            :title="$t('monitorCard.sslCheck')">
-            <i class="fa-regular fa-flag"></i>
-          </a>
           <span class="shrink-0 text-[10px] sm:text-[11px] font-mono text-slate-400 dark:text-slate-600">{{ formatDate(monitor.last_check) }}</span>
         </div>
 
@@ -57,12 +52,10 @@
       </section>
 
       <section class="monitor-expiry-grid grid grid-cols-2 gap-4 border-slate-200/70 dark:border-white/[0.06]">
-        <a v-if="monitor.cert_expiry" :href="sslCheckUrl || undefined" target="_blank" rel="noopener"
-          class="expiry-field min-w-0" :class="sslCheckUrl ? 'cursor-pointer' : 'cursor-default'"
-          :title="$t('monitorCard.sslCheck')">
+        <div v-if="monitor.cert_expiry" class="expiry-field min-w-0">
           <span class="expiry-label"><i class="fa-solid fa-calendar-days"></i>{{ $t('monitorForm.ssl') }}</span>
           <span class="expiry-value" :class="expiryTextClass(monitor.cert_expiry)">{{ formatExpiryDate(monitor.cert_expiry) }} · {{ formatExpiry(monitor.cert_expiry) }}</span>
-        </a>
+        </div>
         <div v-else class="expiry-field min-w-0" :title="monitor.last_info_error || ''">
           <span class="expiry-label"><i class="fa-solid fa-calendar-days"></i>{{ $t('monitorForm.ssl') }}</span>
           <span class="expiry-value text-slate-400 dark:text-slate-600">
@@ -172,15 +165,6 @@ const typeLabel = computed(() => ({
     port: 'TCP',
 }[typeKey.value] || 'HTTP/HTTPS'));
 
-const sslCheckUrl = computed(() => {
-    try {
-        const host = new URL(props.monitor.url).hostname;
-        if (!host) return '';
-        return `https://csr.plus/check?domain=${encodeURIComponent(host)}`;
-    } catch {
-        return '';
-    }
-});
 </script>
 
 <style scoped>

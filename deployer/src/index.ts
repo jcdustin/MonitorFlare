@@ -18,7 +18,7 @@ type Env = {
   OAUTH_CLIENT_ID: string;
   OAUTH_CLIENT_SECRET: string;
   OAUTH_SCOPE: string;
-  REDIRECT_URI: string;       // 例如 https://monitorflare.csr.plus/api/deploy/callback
+  REDIRECT_URI: string;       // 例如 https://your-domain.example/api/deploy/callback
   STATE_SECRET: string;       // state 签名密钥
   KV: KVNamespace;            // state + 部署记录
   ARTIFACTS: R2Bucket;        // 构建产物(worker bundle + frontend dist)

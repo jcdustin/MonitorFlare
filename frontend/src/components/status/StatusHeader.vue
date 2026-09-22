@@ -57,7 +57,7 @@
           </svg>
         </router-link>
         <!-- GitHub 链接 -->
-        <a href="https://github.com/xusteve/MonitorFlare" target="_blank" rel="noopener" :title="$t('footer.github')" :aria-label="$t('footer.github')"
+        <a href="https://github.com/jcdustin/MonitorFlare" target="_blank" rel="noopener" :title="$t('footer.github')" :aria-label="$t('footer.github')"
           class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-all duration-300">
           <i class="fa-brands fa-github text-[15px]"></i>
         </a>

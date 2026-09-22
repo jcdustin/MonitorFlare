@@ -3,8 +3,7 @@
 > Website-Überwachung ohne Serverkosten + öffentliche Statusseite – alles im Cloudflare Free-Tarif.
 > Verbesserte Version, verteilt auf Basis von [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor) (MIT).
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 **README-Sprachen**: [English](README.md) | [中文](README.zh.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | Deutsch | [Français](README.fr.md) | [Italiano](README.it.md) | [Español](README.es.md)
 
@@ -20,7 +19,6 @@
 - **Fehlerraten-Schwellwert**-Alarme, **Alarm-Eskalation bei aufeinanderfolgenden Fehlern**
 - Konfigurierbare Prüfintervalle, Pause/Fortsetzen, Tags, Drag-Sortierung
 - **Monitor-Badges im Shields.io-Stil** — SSL / HTTP / HTTPS / DNS / TCP-Typ neben jedem Monitornamen, Hover wird grün (globales CSS, auf Karten & Detailseite wiederverwendet)
-- **SSL-Tiefenprüfung per Klick** — Flaggen-Icon neben jeder Monitor-URL öffnet die SSL-Analyse unter `csr.plus/check?domain=...` (sichtbar, wenn die SSL-Ablaufverfolgung aktiviert ist)
 
 ### Benachrichtigungen (9 Kanäle)
 - DingTalk / WeCom / Feishu / Telegram / Slack / Discord / ntfy / generischer Webhook
@@ -53,7 +51,7 @@
 
 ### Option A: Ein-Klick (empfohlen)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. Klicke auf den Button und melde dich bei Cloudflare an
 2. Setze `ADMIN_API_KEY` (dein Admin-Passwort), wenn du dazu aufgefordert wirst

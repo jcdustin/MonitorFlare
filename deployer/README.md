@@ -50,7 +50,7 @@ npx wrangler deploy
 VITE_DEPLOY_API_URL=https://你的部署域名   # 显示"用 Cloudflare 授权部署"主按钮
 VITE_DEPLOY_GITHUB_URL=https://deploy.workers.cloudflare.com/?url=你的GitHub仓库
 ```
-然后把前端部署到 `monitorflare.csr.plus`(Cloudflare Pages + 自定义域名)。
+然后把前端部署到你自己的 Cloudflare Pages 项目，再绑上你的域名。
 
 ## API
 

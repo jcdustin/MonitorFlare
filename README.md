@@ -3,8 +3,7 @@
 > **Zero-cost website monitoring + public status page, running entirely on the Cloudflare free tier.**
 > An enhanced fork of [Uptime-Monitor](https://github.com/nianshu2022/Uptime-Monitor) (MIT).
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
-<a href="https://uptime.csr.plus/"><img src="https://monitorflare.csr.plus/uptime-badge.png" height="28" alt="Uptime Status"></a>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **README Languages**: English | [中文](README.zh.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Español](README.es.md)
@@ -23,7 +22,6 @@ MonitorFlare is a self-hosted uptime monitoring platform with a beautiful public
 - **Error-rate threshold** alerts and **consecutive-failure** escalation
 - Configurable check intervals, pause/resume, tags, drag-and-drop sorting
 - **Shields.io-style monitor badges** — SSL / HTTP / HTTPS / DNS / TCP types shown next to each monitor name, hover turns green (shared global CSS, reused on status cards & the detail page)
-- **One-click SSL deep check** — a flag icon beside each monitor URL opens a full SSL analysis at `csr.plus/check?domain=...` (visible when SSL expiry tracking is enabled)
 
 ### 🔔 Notifications (9 channels)
 - DingTalk · WeCom (WeChat Work) · Feishu (Lark) · Telegram · Slack · Discord · ntfy · generic Webhook
@@ -56,7 +54,7 @@ MonitorFlare is a self-hosted uptime monitoring platform with a beautiful public
 
 ### Option A: One-click (recommended)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xusteve/MonitorFlare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jcdustin/MonitorFlare)
 
 1. Click the button and sign in to Cloudflare
 2. Set `ADMIN_API_KEY` (your admin password) when prompted
@@ -87,7 +85,7 @@ Fork this repository and add the following secrets and variables in
 | `SESSION_TTL_HOURS` | `12` |
 | `BASE_URL` | `https://<project>.pages.dev` |
 | `VITE_FOOTER_AUTHOR` | `MonitorFlare` |
-| `VITE_FOOTER_URL` | `https://github.com/xusteve/MonitorFlare` |
+| `VITE_FOOTER_URL` | `https://github.com/jcdustin/MonitorFlare` |
 
 Push to `main` → both the Worker and the Pages site deploy automatically.
 
